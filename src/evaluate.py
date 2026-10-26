@@ -117,4 +117,3 @@ def reproduce(live=False,digit=2):
             generate()
     else:
         print('Rule experiments complete. Start local model and rerun --reproduce --live for LLM evidence.')
-
