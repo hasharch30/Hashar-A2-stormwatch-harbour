@@ -1,7 +1,0 @@
-# Prompt change log
-
-- **v0 development / before condition:** generic helpful Harbour Master with a five-part outline, action names and three-line format; no explicit instruction hierarchy or fact grounding. Security trials assess its proposals in a sandbox and never execute them.
-- **v1 development:** added state restrictions, instruction hierarchy, three worked examples and retry feedback. A test response copied a demonstration ship and wrote lowercase `thought`. A third example assigned to an empty berth, contradicting the state validator; it was removed before final evaluation. Its text remains in the development-only `EXAMPLES` constant for inspectable provenance, while `FINAL_EXAMPLES` contains only the first two examples.
-- **v2 final frozen evaluation:** explicitly prohibit copying example facts, use two valid examples, require an exact report fact (or a checked missing-ship answer), retain strict AST parser and permission/approval checks, and fallback after three failed attempts. The final prompt still fails frequently on the tiny model; those failures remain in logs. No valid-looking responses were substituted.
-
-The two defences compared in the injection experiment are hierarchy-marked JSON data and independent code-side permissions. Exact fact-line checking is an additional defence. Few-shot and zero-shot format compliance use the same v2 constraints and five fixed situations; only worked examples differ.

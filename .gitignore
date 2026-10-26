@@ -5,3 +5,5 @@ __pycache__/
 *.gguf
 runtime/
 work/
+*.pdf
+*.docx

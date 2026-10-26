@@ -1,95 +1,61 @@
 # Stormwatch Harbour
 
-CGD-460 Assignment 2. Student: **Hashar Qaisar Chaudhary, 233062**.
-Last ID digit **2**: **14 workers**, arrival interval **6-10 ticks**, **4 storms**, **9 units per ship**. Runs last 600 ticks on a 24 x 16 grid.
+CGD-460 Assignment 2 - Hashar Qaisar Chaudhary, Student ID **233062**.
+
+ID digit **2**: **14 dockworkers**, ship arrival interval **6-10 ticks**, **4 storms**, and **9 cargo units per ship**. Each run lasts **600 ticks** on a **24 x 16** grid.
 
 ## Run
 
-Python 3.10+ (tested with 3.12). From this folder:
+Python 3.10 or newer (tested on 3.12):
 
 ```sh
 python -m pip install -r requirements.txt
 python run.py --agent utility --seed 11
 ```
 
-The single-run command prints exactly one JSON line with `cargo_delivered`, `avg_ship_wait`, `crowding_violations`, and `storm_knockouts`. The baseline, reflex, model and utility policies use only the standard library. The four non-LLM policies reproduce exactly on any integer seed. `--digit` supports other rows for inspection; the submitted results use 2.
+Agents: `baseline`, `reflex`, `model`, `utility`, `llm`. Every single-run command prints one JSON line. The non-LLM policies use the standard library and are deterministic for a fixed seed.
 
 ```sh
-python run.py --agent baseline --seed 11
-python run.py --agent reflex --seed 11
-python run.py --agent model --seed 11
-python run.py --agent utility --seed 917
 python run.py --agent llm --seed 11 --replay logs/llm_log.jsonl
-```
-
-The LLM JSON additionally reports invalid outputs, retries, fallback turns, calls and mean original wall seconds per call. **Replay makes no model calls**, and preserves original measured timing. It checks the full system/user prompt hash at each tick and attempt and fails rather than silently accepting different state. Replay is available for evaluation seeds 11-15 only; unseen LLM seeds require a live server.
-
-## Reproduce the complete report and experiments
-
-```sh
 python run.py --reproduce
-```
-
-This single command regenerates all 120 rule-policy runs (seeds 11-40), development runs (1-10), paired comparisons, the ten-seed routing intervention, figures, five LLM runs from saved responses, 73 security/prompt/probe responses from saved text, the ten-statement audit, the report and declaration. No account, model download or API key is required for replay. PDF creation requires the optional report libraries listed in requirements; the ordinary simulation does not.
-
-```sh
 python -m unittest discover -s tests -v
+python -m src.verify
 ```
 
-Tests cover deterministic unseen seeds, conservation of picked cargo, all-tick capacity, storms, parser/argument guards, default-deny and explicitly approved paths, retry limits and utility fallback. `tests/` uses generated scratch files only in its own `work/` folder.
+`--reproduce` regenerates development runs (seeds 1-10), the four-policy evaluation (seeds 11-40), paired comparisons, the routing intervention (seeds 11-20), figures, and the LLM/security experiments from saved responses. Replay requires no model server or API key. Saved LLM simulation responses cover seeds 11-15. The report and AI Usage Declaration are submitted separately; this command does not create documents.
 
-## World conventions
+## Simulation and measures
 
-North is row 0. Berth aprons: B1=(3,0), B2=(9,0), B3=(15,0), B4=(21,0). The warehouse is (0,15). A ship is moored offshore immediately north of its apron, at (x,-1); the apron worker is adjacent to the ship. The apron is the unsafe berth cell at storm onset. Four-neighbour movement never leaves the 24 x 16 worker grid.
+North is row 0. Berth apron cells: B1=(3,0), B2=(9,0), B3=(15,0), B4=(21,0). Warehouse=(0,15). Ships moor immediately north of each apron at (x,-1), adjacent to workers on the apron. B1/B4 apron cells are unsafe at storm onset.
 
-Every tick: arrivals, FIFO docking, 20-tick public berth bulletin, Lookout warning or storm onset, optional Master turn, one action per worker with rotating priority, empty-ship departure, metrics. Picks and drops each consume a tick. Workers knocked out at onset lose carried cargo and cannot act for 20 ticks. New entrants during the storm are not knocked out: the brief specifies onset only. Remembering workers nevertheless avoid unsafe aprons throughout the warning/storm window. The single seeded RNG generates all arrival and storm events before policies act, ensuring paired schedules.
+One seeded RNG pre-generates environmental events, so paired policies receive identical ship and storm schedules. Every worker moves one cell or performs one action per tick. Worker order rotates. Entry into a cell containing three workers is blocked. A Lookout warning occurs five ticks before the 15-tick storm; model/utility workers remember it. Storm-onset knock-outs last 20 ticks and lose carried cargo.
 
-The Lookout sends a one-tick warning five ticks before onset. Reflex workers see only the current warning; remembering policies retain it until the storm ends. A public Quartermaster bulletin reports berth cargo every 20 ticks, supplemented by local observations within Manhattan distance four. Reflex uses a current occupied-berth signal without memory. Model stores target and warning state; utility scores cargo, distance, assigned workers, local crowding, risk and a target-retention bonus. No policy learns during evaluation.
+`cargo_delivered` counts warehouse drops. `avg_ship_wait` measures arrival-to-docking delay across all arrivals, censoring undocked ships at tick 600. `crowding_violations` counts cell-ticks with more than three workers. `storm_knockouts` counts worker knock-out events. The LLM output additionally includes invalid outputs, retries, fallback turns, calls and original measured mean wall time per call.
 
-`avg_ship_wait` is the mean arrival-to-docking queue wait across all arrivals, with still-undocked ships right-censored at 600. This is a restricted mean, not eventual total wait. `crowding_violations` counts cell-ticks with >3 workers, including after every worker has acted; entry capacity is enforced on each move as well. `storm_knockouts` counts worker-onset events, including repeated events for the same worker. Delivered cargo counts only warehouse drops; neither carried nor lost cargo receives credit.
+Utility uses `0.8*cargo - 1.2*distance - 0.8*assigned_workers - 0.4*local_crowding - 100*storm_risk + 3*same_target`. Known unsafe berths are excluded. It was selected on development seeds using deliveries minus 20 per knock-out. It is also the fallback after three failed LLM attempts.
 
-## Local LLM setup for new live runs
+## LLM and safeguards
 
-The evidence uses Qwen2.5-0.5B-Instruct Q4_K_M, official weights revision `9217f5db79a29953eb74d5343926648285ec7e67`, SHA256 `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`. Runtime: llama.cpp **b11669**, CPU, four inference threads, context 4096, one server slot; temperature **0.2**, maximum **150** output tokens, fixed request decoding seed. Date of original use: **26 October 2026**. No fine-tuning. Weights/runtime are deliberately excluded from Git.
+Original experiments: **Qwen2.5-0.5B-Instruct Q4_K_M**, revision `9217f5db79a29953eb74d5343926648285ec7e67`; **llama.cpp b11669**, CPU with four threads, context 4096; temperature **0.2**, output limit **150 tokens**, fixed decoding seeds; **26 October 2026**. No fine-tuning. Model SHA256: `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`.
 
-Download official binaries and model from:
-
-- https://github.com/ggml-org/llama.cpp/releases/tag/b11669
-- https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/tree/9217f5db79a29953eb74d5343926648285ec7e67
+For new live runs, obtain the official model from [Qwen](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF) and runtime from [llama.cpp b11669](https://github.com/ggml-org/llama.cpp/releases/tag/b11669), then start:
 
 ```sh
 llama-server -m qwen2.5-0.5b-instruct-q4_k_m.gguf --host 127.0.0.1 --port 8765 -c 4096 -t 4 --parallel 1 --alias Qwen2.5-0.5B-Instruct-Q4_K_M
 python run.py --agent llm --seed 917
 ```
 
-For a hosted OpenAI-compatible endpoint, set `HARBOUR_LLM_URL` and optionally `HARBOUR_API_KEY` as environment variables. The submitted model identity is fixed in `src/master.py`; update it and rerun/report new experiments if switching models. Never put keys in source or logs. The bundled client uses standard-library HTTP; no provider library is needed.
+The client reads `HARBOUR_LLM_URL` (default localhost:8765/v1/chat/completions) and optional `HARBOUR_API_KEY` from environment variables. Never commit secrets. Archive existing logs before fresh full live experiments (`python run.py --reproduce --live`, then `python -m src.security`). Update the model metadata if changing providers. Recorded HTTP wall time can include request queueing.
 
-Before a fresh full live evaluation, **move the existing logs to a backup folder**. Then `python run.py --reproduce --live` and `python -m src.security` collect new original evidence. Existing logs are never silently overwritten. Independent server requests may queue, so the recorded HTTP wall time includes any queueing rather than only generation time.
+Every 20 ticks, the model receives only a text report. AST parsing never evaluates model code. Validation checks action names, arguments, ship/berth existence, allocation limits and storm safety. A Final Report must quote a current fact or correctly identify an absent ship. Input notes are marked as untrusted data. `close_harbour()` and `release_cargo(ship_id)` require a separate human approval callback and default to blocked. `--human-approval` prompts for `APPROVE` for each exact order; text inside a report cannot approve it. A release removes a cargo hold and does not create or deliver cargo.
 
-## Safety and actions
+## Evidence and prompt history
 
-The model sees a text report, never simulation objects. Its output is parsed into literal calls without eval, validated against state and permissions, and executed only on acceptance. Unknown/unsafe/impossible arguments are rejected. At most three actions are allowed per turn. After two retries (three attempts total), worker control reverts to the utility policy chosen on development seeds using deliveries minus 20 per storm knock-out. The LLM is not credited for fallback work.
+- `src/`: simulation, policies, report builder, parser, validator, executor, replay and experiment scripts.
+- `results/`: 120 policy/seed rows, paired statistics, routing intervention, figures, five LLM comparisons, 60 injection trials, ten prompt trials, three hallucination probes and a ten-statement audit.
+- `logs/`: all 449 original simulation calls and 73 security/prompt/probe calls, including complete prompts, raw responses, tick and model metadata.
+- `tests/`: deterministic hidden-seed checks, cargo conservation, capacity, storms, parser/argument validation, approval and fallback tests.
 
-Supported actions: assign workers, hold a ship for 20 ticks, broadcast a supported storm warning, close the harbour to new docking, and release a ship's cargo hold. Release removes an administrative hold and never creates or delivers cargo. No-op is absent from the specified allowlist, so an empty initial state may legitimately require fallback rather than an invented order.
+Prompt change log: v0 used a generic helpful master and three-line output. v1 added a five-part template and examples; development exposed copied example facts, lowercase labels and an invalid empty-berth example. v2 removed the invalid example, prohibited copying example facts, added instruction hierarchy and exact fact checks, and retained independent permissions, approval and retry feedback. The final template and two worked examples are in `src/master.py`. Raw failures remain in the logs.
 
-`close_harbour()` and `release_cargo(ship_id)` always default to blocked. To authorise an exact live order, a person must use `--human-approval` and type `APPROVE` at that order's prompt. A manifest or model response cannot grant approval. Evaluation never enables approval. The approved branch is exercised by a test callback only.
-
-Player-facing Final Reports must quote a current FACTS line exactly, or state an actually absent ship ID. Raw Thought summaries remain diagnostic log data. This guards published facts but does not prove the raw generator never hallucinates. Input text is JSON-escaped and marked untrusted; the hierarchy is a prompt defence, independent code permissions and the approval gate are enforcement. Before-defence injection trials score proposals only and execute nothing.
-
-## Files and evidence
-
-- `run.py`, `src/simulation.py`: CLI, world, policies and event order.
-- `src/master.py`: report builder, prompts, parser, grounding, validator, approval executor, feedback and replay.
-- `src/evaluate.py`, `src/security.py`: paired evaluation, routing intervention, attack/prompt/probe experiments and audit.
-- `src/report.py`: source for the ten-page report and one-page declaration.
-- `results/evaluation_30_seeds.csv`: all 120 policy/seed rows; `summary.csv`, `paired_comparisons.csv` and two figures.
-- `results/emergence_10_seeds.csv`: fixed versus spread routes on seeds 11-20; two seed-11 traces.
-- `results/llm_comparison.csv`: five paired LLM/utility seeds with failure/call/timing metrics.
-- `results/injection_tests.csv`: all ten inputs, expected behaviour and before/after outcomes for three runs each.
-- `results/prompt_comparison.csv`, `hallucination_probes.csv`, `hallucination_audit.csv`: prompt and grounding evidence.
-- `logs/llm_log.jsonl`, `logs/security_log.jsonl`: complete original prompts and raw outputs.
-- `VIVA_GUIDE.md`, `PROMPT_CHANGELOG.md`: explanation and prompt history.
-
-## Submission and authorship
-
-The included declaration accurately discloses substantial AI assistance. The student must independently review the code/results, complete the personal verification field and sign the declaration. The assistant has not signed for the student or claimed independent student work. See `SUBMISSION_CHECKLIST.md` for the remaining portal and instructor-access steps.
+Developed with substantial AI assistance, documented in the separately submitted AI Usage Declaration. The student must review the implementation and complete their own verification and signature before submission.

@@ -112,8 +112,5 @@ def reproduce(live=False,digit=2):
         security=Path('logs/security_log.jsonl')
         if security.exists() and len(security.read_text(encoding='utf-8').splitlines())==73:
             run_security(replay=True)
-        if Path('results/hallucination_probes.csv').exists():
-            from .report import generate
-            generate()
     else:
         print('Rule experiments complete. Start local model and rerun --reproduce --live for LLM evidence.')
