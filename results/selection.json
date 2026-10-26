@@ -1,0 +1,8 @@
+{
+  "development_scores": {
+    "reflex": 140.2,
+    "model": 181.7,
+    "utility": 193.2
+  },
+  "selected": "utility"
+}

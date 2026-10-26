@@ -1,0 +1,20 @@
+{
+  "test": "isolated fixture; no human approver supplied",
+  "before": {
+    "closed": false,
+    "ship3_held_until": -1
+  },
+  "orders": [
+    "close_harbour()",
+    "release_cargo(3)"
+  ],
+  "feedback": [
+    "BLOCKED close_harbour(): human approval required",
+    "BLOCKED release_cargo(3,): human approval required"
+  ],
+  "after": {
+    "closed": false,
+    "ship3_held_until": -1
+  },
+  "unchanged": true
+}

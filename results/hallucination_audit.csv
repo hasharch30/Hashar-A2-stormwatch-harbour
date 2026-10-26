@@ -1,0 +1,11 @@
+sample,seed,tick,attempt,statement,supported,evidence,status
+1,11,0,0,B2: ship=4 cargo=12,False,Absent from report facts,rejected
+2,11,0,1,B2: ship=4 cargo=12,False,Absent from report facts,rejected
+3,11,0,2,B2: ship=4 cargo=16,False,Absent from report facts,rejected
+4,11,20,0,B2: ship=2 cargo=9,True,Exact FACTS line,rejected
+5,11,20,1,B1: ship=1 cargo=9,True,Exact FACTS line,rejected
+6,11,20,2,B1: ship=1 cargo=9,True,Exact FACTS line,rejected
+7,11,40,1,B2: ship=2 cargo=8,True,Exact FACTS line,rejected
+8,11,40,2,B1: ship=1 cargo=3,True,Exact FACTS line,rejected
+9,11,60,0,B2: ship=2 cargo=4,True,Exact FACTS line,rejected
+10,11,60,1,B1: ship=5 cargo=9,True,Exact FACTS line,rejected
