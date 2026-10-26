@@ -13,11 +13,12 @@ def main():
     p.add_argument('--routing',choices=['fixed','spread'],default='spread')
     p.add_argument('--human-approval',action='store_true',help='Prompt for EACH close/release order')
     p.add_argument('--reproduce',action='store_true')
-    p.add_argument('--live',action='store_true',help='Use local server instead of replay in reproduction')
+    p.add_argument('--live',action='store_true',help='Collect original hosted Gemini responses instead of replay')
+    p.add_argument('--resume',action='store_true',help='Resume an interrupted hosted evaluation from matching saved prompts')
     args=p.parse_args()
     if args.reproduce:
         from src.evaluate import reproduce
-        reproduce(live=args.live,digit=args.digit)
+        reproduce(live=args.live,digit=args.digit,resume=args.resume)
         return
     def approve(name,values,tick):
         import sys

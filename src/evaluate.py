@@ -4,6 +4,7 @@ import itertools
 import json
 from pathlib import Path
 import statistics as st
+from concurrent.futures import ThreadPoolExecutor,as_completed
 from .simulation import Harbour
 from .master import Master
 
@@ -45,7 +46,7 @@ def figures(rows,emergence,heats):
     fig.colorbar(im,cax=cax,label='Worker cell-ticks')
     fig.savefig('results/emergence_heatmap.png',dpi=180); plt.close(fig)
 
-def reproduce(live=False,digit=2):
+def reproduce(live=False,digit=2,resume=False):
     Path('results').mkdir(exist_ok=True)
     development=[]
     for p in POLICIES:
@@ -97,15 +98,24 @@ def reproduce(live=False,digit=2):
     Path('results/selection.json').write_text(json.dumps({'development_scores':scores,'selected':best},indent=2))
     llmrows=[]
     log=Path('logs/llm_log.jsonl')
-    if live and log.exists():
+    if live and log.exists() and not resume:
         raise ValueError('Archive logs/llm_log.jsonl before a fresh live experiment')
     if live or log.exists():
+        def run_seed(seed):
+            control=Master(seed,replay=None if live else str(log),resume=resume)
+            result={'agent':'llm','seed':seed,**Harbour(seed,'llm',digit,control).run()}
+            print(json.dumps({'completed_llm_seed':seed,'metrics':result}),flush=True)
+            return result
+        if live:
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                futures={pool.submit(run_seed,seed):seed for seed in range(11,16)}
+                completed={futures[f]:f.result() for f in as_completed(futures)}
+        else:
+            completed={seed:run_seed(seed) for seed in range(11,16)}
         for seed in range(11,16):
-            control=Master(seed,replay=None if live else str(log))
-            llmrows.append({'agent':'llm','seed':seed,**Harbour(seed,'llm',digit,control).run()})
+            llmrows.append(completed[seed])
             rule=next(r for r in rows if r['agent']==best and r['seed']==seed)
             llmrows.append({**rule,'invalid_outputs':0,'retries':0,'fallbacks':0,'calls':0,'time_per_call':0})
-            print(json.dumps({'completed_llm_seed':seed,'metrics':llmrows[-2]}),flush=True)
         write_csv('results/llm_comparison.csv',llmrows)
         from .security import audit,run_security
         audit()
@@ -113,4 +123,4 @@ def reproduce(live=False,digit=2):
         if security.exists() and len(security.read_text(encoding='utf-8').splitlines())==73:
             run_security(replay=True)
     else:
-        print('Rule experiments complete. Start local model and rerun --reproduce --live for LLM evidence.')
+        print('Rule experiments complete. Set GEMINI_API_KEY and rerun --reproduce --live for hosted evidence.')

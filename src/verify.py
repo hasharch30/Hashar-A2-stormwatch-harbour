@@ -32,8 +32,15 @@ def verify():
     assert Counter(r['experiment'] for r in security)=={'injection':60,'prompt_format':10,'hallucination_probe':3}
     for phase_records in [security[:30],security[30:60]]:
         assert Counter(r['case'] for r in phase_records)=={f'T{i}':3 for i in range(1,11)}
+    assert all(r.get('provider')=='Google Gemini API' for r in logs+security)
+    assert len(set(r['model'] for r in logs+security))==1
+    errors=Path('logs/provider_errors.jsonl')
+    http_errors=len(errors.read_text(encoding='utf-8').splitlines()) if errors.exists() else 0
     result={'rule_rows':120,'rule_seeds':[11,40],'replay_matches':replay,
             'simulation_calls':len(logs),'security_calls':len(security),
+            'provider':'Google Gemini API','models':sorted(set(r['model'] for r in logs+security)),
+            'api_versions':sorted(set(r['revision'] for r in logs+security)),
+            'separately_logged_provider_errors':http_errors,
             'tests_command':'python -m unittest discover -s tests -v',
             'replay_and_log_consistency':'PASS'}
     Path('results/verification.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
